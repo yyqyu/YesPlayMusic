@@ -24,7 +24,7 @@
 - 📺 支持 MV 播放
 - 📃 支持歌词显示
 - 📻 支持私人 FM / 每日推荐歌曲
-- 🚫🤝 无任何社交功能
+- 🚫无任何社交功能
 - 🌎️ 海外用户可直接播放（需要登录网易云账号）
 - 🔐 支持 [UnblockNeteaseMusic](https://github.com/nondanee/UnblockNeteaseMusic)（[使用 revincx 修复的 npm 包](https://github.com/revincx/UnblockNeteaseMusic)），自动使用 QQ/酷狗/酷我音源替换变灰歌曲链接 （网页版不支持）
 - ✔️ 每日自动签到（手机端和电脑端同时签到）
