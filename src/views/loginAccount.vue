@@ -68,8 +68,8 @@
         </div>
 
         <div v-show="mode == 'qrCode'">
-          <div v-show="qrCodeImage" class="qr-code-container">
-            <img :src="qrCodeImage" />
+          <div v-show="qrCodeSvg" class="qr-code-container">
+            <img :src="qrCodeSvg" loading="lazy" />
           </div>
           <div class="qr-code-info">
             {{ qrCodeInformation }}
@@ -87,15 +87,17 @@
         </button>
       </div>
       <div class="other-login">
-        <a v-show="mode !== 'email'" @click="mode = 'email'">{{
+        <a v-show="mode !== 'email'" @click="changeMode('email')">{{
           $t('login.loginWithEmail')
         }}</a>
         <span v-show="mode === 'qrCode'">|</span>
-        <a v-show="mode !== 'phone'" @click="mode = 'phone'">{{
+        <a v-show="mode !== 'phone'" @click="changeMode('phone')">{{
           $t('login.loginWithPhone')
         }}</a>
         <span v-show="mode !== 'qrCode'">|</span>
-        <a v-show="mode !== 'qrCode'" @click="mode = 'qrCode'"> 二维码登录 </a>
+        <a v-show="mode !== 'qrCode'" @click="changeMode('qrCode')">
+          二维码登录
+        </a>
       </div>
       <div
         v-show="mode !== 'qrCode'"
@@ -133,7 +135,7 @@ export default {
       smsCode: '',
       inputFocus: '',
       qrCodeKey: '',
-      qrCodeImage: '',
+      qrCodeSvg: '',
       qrCodeCheckInterval: null,
       qrCodeInformation: '打开网易云音乐APP扫码登录',
     };
@@ -167,7 +169,8 @@ export default {
       return true;
     },
     validateEmail() {
-      const emailReg = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+      const emailReg =
+        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
       if (
         this.email === '' ||
         this.password === '' ||
@@ -230,7 +233,7 @@ export default {
       return loginQrCodeKey().then(result => {
         if (result.code === 200) {
           this.qrCodeKey = result.data.unikey;
-          QRCode.toDataURL(
+          QRCode.toString(
             `https://music.163.com/login?codekey=${this.qrCodeKey}`,
             {
               width: 192,
@@ -239,10 +242,13 @@ export default {
                 dark: '#335eea',
                 light: '#00000000',
               },
+              type: 'svg',
             }
           )
-            .then(url => {
-              this.qrCodeImage = url;
+            .then(svg => {
+              this.qrCodeSvg = `data:image/svg+xml;utf8,${encodeURIComponent(
+                svg
+              )}`;
             })
             .catch(err => {
               console.error(err);
@@ -263,14 +269,25 @@ export default {
             this.qrCodeInformation = '二维码已失效，请重新扫码';
           } else if (result.code === 802) {
             this.qrCodeInformation = '扫描成功，请在手机上确认登录';
+          } else if (result.code === 801) {
+            this.qrCodeInformation = '打开网易云音乐APP扫码登录';
           } else if (result.code === 803) {
             clearInterval(this.qrCodeCheckInterval);
             this.qrCodeInformation = '登录成功，请稍等...';
             result.code = 200;
+            result.cookie = result.cookie.replace('HTTPOnly', '');
             this.handleLoginResponse(result);
           }
         });
       }, 1000);
+    },
+    changeMode(mode) {
+      this.mode = mode;
+      if (mode === 'qrCode') {
+        this.checkQrCodeLogin();
+      } else {
+        clearInterval(this.qrCodeCheckInterval);
+      }
     },
   },
 };

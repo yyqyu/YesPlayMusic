@@ -32,9 +32,12 @@
 
       <div class="left-side">
         <div>
+          <div v-if="settings.showLyricsTime" class="date">
+            {{ date }}
+          </div>
           <div class="cover">
             <div class="cover-container">
-              <img :src="imageUrl" />
+              <img :src="imageUrl" loading="lazy" />
               <div
                 class="shadow"
                 :style="{ backgroundImage: `url(${imageUrl})` }"
@@ -46,40 +49,80 @@
               <div class="track-info">
                 <div class="title" :title="currentTrack.name">
                   <router-link
-                    :to="`/${player.playlistSource.type}/${player.playlistSource.id}`"
+                    v-if="hasList()"
+                    :to="`${getListPath()}`"
                     @click.native="toggleLyrics"
                     >{{ currentTrack.name }}
                   </router-link>
+                  <span v-else>
+                    {{ currentTrack.name }}
+                  </span>
                 </div>
                 <div class="subtitle">
                   <router-link
+                    v-if="artist.id !== 0"
                     :to="`/artist/${artist.id}`"
                     @click.native="toggleLyrics"
                     >{{ artist.name }}
                   </router-link>
-                  -
-                  <router-link
-                    :to="`/album/${album.id}`"
-                    :title="album.name"
-                    @click.native="toggleLyrics"
-                    >{{ album.name }}
-                  </router-link>
+                  <span v-else>
+                    {{ artist.name }}
+                  </span>
+                  <span v-if="album.id !== 0">
+                    -
+                    <router-link
+                      :to="`/album/${album.id}`"
+                      :title="album.name"
+                      @click.native="toggleLyrics"
+                      >{{ album.name }}
+                    </router-link>
+                  </span>
                 </div>
               </div>
-              <div class="buttons">
-                <button-icon
-                  :title="$t('player.like')"
-                  @click.native="likeATrack(player.currentTrack.id)"
-                >
-                  <svg-icon
-                    :icon-class="
-                      player.isCurrentTrackLiked ? 'heart-solid' : 'heart'
-                    "
-                  />
-                </button-icon>
-                <!-- <button-icon @click.native="openMenu" title="Menu"
-                  ><svg-icon icon-class="more"
-                /></button-icon> -->
+              <div class="top-right">
+                <div class="volume-control">
+                  <button-icon :title="$t('player.mute')" @click.native="mute">
+                    <svg-icon v-show="volume > 0.5" icon-class="volume" />
+                    <svg-icon v-show="volume === 0" icon-class="volume-mute" />
+                    <svg-icon
+                      v-show="volume <= 0.5 && volume !== 0"
+                      icon-class="volume-half"
+                    />
+                  </button-icon>
+                  <div class="volume-bar">
+                    <vue-slider
+                      v-model="volume"
+                      :min="0"
+                      :max="1"
+                      :interval="0.01"
+                      :drag-on-click="true"
+                      :duration="0"
+                      tooltip="none"
+                      :dot-size="12"
+                    ></vue-slider>
+                  </div>
+                </div>
+                <div class="buttons">
+                  <button-icon
+                    :title="$t('player.like')"
+                    @click.native="likeATrack(player.currentTrack.id)"
+                  >
+                    <svg-icon
+                      :icon-class="
+                        player.isCurrentTrackLiked ? 'heart-solid' : 'heart'
+                      "
+                    />
+                  </button-icon>
+                  <button-icon
+                    :title="$t('contextMenu.addToPlaylist')"
+                    @click.native="addToPlaylist"
+                  >
+                    <svg-icon icon-class="plus" />
+                  </button-icon>
+                  <!-- <button-icon @click.native="openMenu" title="Menu"
+                    ><svg-icon icon-class="more"
+                  /></button-icon> -->
+                </div>
               </div>
             </div>
             <div class="progress-bar">
@@ -110,7 +153,7 @@
                     : $t('player.repeat')
                 "
                 :class="{ active: player.repeatMode !== 'off' }"
-                @click.native="player.switchRepeatMode"
+                @click.native="switchRepeatMode"
               >
                 <svg-icon
                   v-show="player.repeatMode !== 'one'"
@@ -125,27 +168,27 @@
                 <button-icon
                   v-show="!player.isPersonalFM"
                   :title="$t('player.previous')"
-                  @click.native="player.playPrevTrack"
+                  @click.native="playPrevTrack"
                 >
                   <svg-icon icon-class="previous" />
                 </button-icon>
                 <button-icon
                   v-show="player.isPersonalFM"
                   title="不喜欢"
-                  @click.native="player.moveToFMTrash"
+                  @click.native="moveToFMTrash"
                 >
                   <svg-icon icon-class="thumbs-down" />
                 </button-icon>
                 <button-icon
                   id="play"
                   :title="$t(player.playing ? 'player.pause' : 'player.play')"
-                  @click.native="player.playOrPause"
+                  @click.native="playOrPause"
                 >
                   <svg-icon :icon-class="player.playing ? 'pause' : 'play'" />
                 </button-icon>
                 <button-icon
                   :title="$t('player.next')"
-                  @click.native="player.playNextTrack"
+                  @click.native="playNextTrack"
                 >
                   <svg-icon icon-class="next" />
                 </button-icon>
@@ -154,7 +197,7 @@
                 v-show="!player.isPersonalFM"
                 :title="$t('player.shuffle')"
                 :class="{ active: player.shuffle }"
-                @click.native="player.switchShuffle"
+                @click.native="switchShuffle"
               >
                 <svg-icon icon-class="shuffle" />
               </button-icon>
@@ -181,8 +224,20 @@
               }"
               @click="clickLyricLine(line.time)"
               @dblclick="clickLyricLine(line.time, true)"
-              ><span v-html="formatLine(line)"></span
-            ></div>
+            >
+              <div class="content">
+                <span v-if="line.contents[0]">{{ line.contents[0] }}</span>
+                <br />
+                <span
+                  v-if="
+                    line.contents[1] &&
+                    $store.state.settings.showLyricsTranslation
+                  "
+                  class="translation"
+                  >{{ line.contents[1] }}</span
+                >
+              </div>
+            </div>
           </div>
         </transition>
       </div>
@@ -205,8 +260,11 @@ import { formatTrackTime } from '@/utils/common';
 import { getLyric } from '@/api/track';
 import { lyricParser } from '@/utils/lyrics';
 import ButtonIcon from '@/components/ButtonIcon.vue';
-import * as Vibrant from 'node-vibrant';
+import * as Vibrant from 'node-vibrant/dist/vibrant.worker.min.js';
 import Color from 'color';
+import { isAccountLoggedIn } from '@/utils/auth';
+import { hasListSource, getListSourcePath } from '@/utils/playList';
+import locale from '@/locale';
 
 export default {
   name: 'Lyrics',
@@ -222,12 +280,21 @@ export default {
       highlightLyricIndex: -1,
       minimize: true,
       background: '',
+      date: this.formatTime(new Date()),
     };
   },
   computed: {
     ...mapState(['player', 'settings', 'showLyrics']),
     currentTrack() {
       return this.player.currentTrack;
+    },
+    volume: {
+      get() {
+        return this.player.volume;
+      },
+      set(value) {
+        this.player.volume = value;
+      },
     },
     imageUrl() {
       return this.player.currentTrack?.al?.picUrl + '?param=1024y1024';
@@ -304,13 +371,68 @@ export default {
   created() {
     this.getLyric();
     this.getCoverColor();
+    this.initDate();
+  },
+  beforeDestroy: function () {
+    if (this.timer) {
+      clearInterval(this.timer);
+    }
   },
   destroyed() {
     clearInterval(this.lyricsInterval);
   },
   methods: {
-    ...mapMutations(['toggleLyrics']),
+    ...mapMutations(['toggleLyrics', 'updateModal']),
     ...mapActions(['likeATrack']),
+    initDate() {
+      var _this = this;
+      clearInterval(this.timer);
+      this.timer = setInterval(function () {
+        _this.date = _this.formatTime(new Date());
+      }, 1000);
+    },
+    formatTime(value) {
+      let hour = value.getHours().toString();
+      let minute = value.getMinutes().toString();
+      let second = value.getSeconds().toString();
+      return (
+        hour.padStart(2, '0') +
+        ':' +
+        minute.padStart(2, '0') +
+        ':' +
+        second.padStart(2, '0')
+      );
+    },
+    addToPlaylist() {
+      if (!isAccountLoggedIn()) {
+        this.showToast(locale.t('toast.needToLogin'));
+        return;
+      }
+      this.$store.dispatch('fetchLikedPlaylist');
+      this.updateModal({
+        modalName: 'addTrackToPlaylistModal',
+        key: 'show',
+        value: true,
+      });
+      this.updateModal({
+        modalName: 'addTrackToPlaylistModal',
+        key: 'selectedTrackID',
+        value: this.currentTrack?.id,
+      });
+    },
+    playPrevTrack() {
+      this.player.playPrevTrack();
+    },
+    playOrPause() {
+      this.player.playOrPause();
+    },
+    playNextTrack() {
+      if (this.player.isPersonalFM) {
+        this.player.playNextFMTrack();
+      } else {
+        this.player.playNextTrack();
+      }
+    },
     getLyric() {
       if (!this.currentTrack.id) return;
       return getLyric(this.currentTrack.id).then(data => {
@@ -320,9 +442,31 @@ export default {
           return false;
         } else {
           let { lyric, tlyric } = lyricParser(data);
-          this.lyric = lyric;
-          this.tlyric = tlyric;
-          return true;
+          lyric = lyric.filter(
+            l => !/^作(词|曲)\s*(:|：)\s*无$/.exec(l.content)
+          );
+          let includeAM =
+            lyric.length <= 10 &&
+            lyric.map(l => l.content).includes('纯音乐，请欣赏');
+          if (includeAM) {
+            let reg = /^作(词|曲)\s*(:|：)\s*/;
+            let author = this.currentTrack?.ar[0]?.name;
+            lyric = lyric.filter(l => {
+              let regExpArr = l.content.match(reg);
+              return (
+                !regExpArr || l.content.replace(regExpArr[0], '') !== author
+              );
+            });
+          }
+          if (lyric.length === 1 && includeAM) {
+            this.lyric = [];
+            this.tlyric = [];
+            return false;
+          } else {
+            this.lyric = lyric;
+            this.tlyric = tlyric;
+            return true;
+          }
         }
       });
     },
@@ -331,7 +475,13 @@ export default {
     },
     clickLyricLine(value, startPlay = false) {
       // TODO: 双击选择还会选中文字，考虑搞个右键菜单复制歌词
-      if (window.getSelection().toString().length === 0) {
+      let jumpFlag = false;
+      this.lyric.filter(function (item) {
+        if (item.content == '纯音乐，请欣赏') {
+          jumpFlag = true;
+        }
+      });
+      if (window.getSelection().toString().length === 0 && !jumpFlag) {
         this.player.seek(value);
       }
       if (startPlay === true) {
@@ -358,30 +508,35 @@ export default {
         }
       }, 50);
     },
-    formatLine(line) {
-      const showLyricsTranslation = this.$store.state.settings
-        .showLyricsTranslation;
-      if (showLyricsTranslation && line.contents[1]) {
-        return `<span>${line.contents[0]}<br/>${line.contents[1]}</span>`;
-      } else if (line.contents[0] !== undefined) {
-        return `<span>${line.contents[0]}</span>`;
-      }
-      return 'unknown';
-    },
     moveToFMTrash() {
       this.player.moveToFMTrash();
     },
+    switchRepeatMode() {
+      this.player.switchRepeatMode();
+    },
+    switchShuffle() {
+      this.player.switchShuffle();
+    },
     getCoverColor() {
       if (this.settings.lyricsBackground !== true) return;
-      const cover = this.currentTrack.al?.picUrl + '?param=1024y1024';
+      const cover = this.currentTrack.al?.picUrl + '?param=256y256';
       Vibrant.from(cover, { colorCount: 1 })
         .getPalette()
         .then(palette => {
-          const orignColor = Color.rgb(palette.DarkMuted._rgb);
-          const color = orignColor.darken(0.1).rgb().string();
-          const color2 = orignColor.lighten(0.28).rotate(-30).rgb().string();
+          const originColor = Color.rgb(palette.DarkMuted._rgb);
+          const color = originColor.darken(0.1).rgb().string();
+          const color2 = originColor.lighten(0.28).rotate(-30).rgb().string();
           this.background = `linear-gradient(to top left, ${color}, ${color2})`;
         });
+    },
+    hasList() {
+      return hasListSource();
+    },
+    getListPath() {
+      return getListSourcePath();
+    },
+    mute() {
+      this.player.mute();
     },
   },
 };
@@ -470,6 +625,20 @@ export default {
 
   z-index: 1;
 
+  .date {
+    max-width: 54vh;
+    margin: 24px 0;
+    color: var(--color-text);
+    text-align: center;
+    font-size: 4rem;
+    font-weight: 600;
+    opacity: 0.88;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+  }
+
   .controls {
     max-width: 54vh;
     margin-top: 24px;
@@ -500,17 +669,31 @@ export default {
       display: flex;
       justify-content: space-between;
 
-      .buttons {
+      .top-right {
         display: flex;
-        align-items: center;
+        justify-content: space-between;
 
-        button {
-          margin: 0 0 0 4px;
+        .volume-control {
+          margin: 0 10px;
+          display: flex;
+          align-items: center;
+          .volume-bar {
+            width: 84px;
+          }
         }
 
-        .svg-icon {
-          height: 18px;
-          width: 18px;
+        .buttons {
+          display: flex;
+          align-items: center;
+
+          button {
+            margin: 0 0 0 4px;
+          }
+
+          .svg-icon {
+            height: 18px;
+            width: 18px;
+          }
         }
       }
     }
@@ -622,19 +805,34 @@ export default {
     max-width: 460px;
     overflow-y: auto;
     transition: 0.5s;
+    scrollbar-width: none; // firefox
 
     .line {
-      padding: 18px;
-      transition: 0.2s;
+      margin: 2px 0;
+      padding: 12px 18px;
+      transition: 0.5s;
       border-radius: 12px;
 
       &:hover {
         background: var(--color-secondary-bg-for-transparent);
       }
 
-      span {
-        opacity: 0.28;
-        cursor: default;
+      .content {
+        transform-origin: center left;
+        transform: scale(0.95);
+        transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+        span {
+          opacity: 0.28;
+          cursor: default;
+          font-size: 1em;
+          transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        span.translation {
+          opacity: 0.2;
+          font-size: 0.925em;
+        }
       }
     }
 
@@ -642,9 +840,20 @@ export default {
       background: unset;
     }
 
-    .highlight span {
-      opacity: 0.98;
-      transition: 0.5s;
+    .translation {
+      margin-top: 0.1em;
+    }
+
+    .highlight div.content {
+      transform: scale(1);
+      span {
+        opacity: 0.98;
+        display: inline-block;
+      }
+
+      span.translation {
+        opacity: 0.65;
+      }
     }
   }
 
@@ -703,6 +912,12 @@ export default {
   }
   .right-side .lyrics-container {
     max-width: 100%;
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  .right-side .lyrics-container {
+    max-width: 600px;
   }
 }
 

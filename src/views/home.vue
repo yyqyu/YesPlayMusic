@@ -69,11 +69,11 @@
 </template>
 
 <script>
-import { toplists, recommendPlaylist } from '@/api/playlist';
+import { toplists } from '@/api/playlist';
 import { toplistOfArtists } from '@/api/artist';
-import { byAppleMusic } from '@/utils/staticData';
-import { countDBSize } from '@/utils/db';
 import { newAlbums } from '@/api/album';
+import { byAppleMusic } from '@/utils/staticData';
+import { getRecommendPlayList } from '@/utils/playList';
 import NProgress from 'nprogress';
 import { mapState } from 'vuex';
 import CoverRow from '@/components/CoverRow.vue';
@@ -113,10 +113,8 @@ export default {
       setTimeout(() => {
         if (!this.show) NProgress.start();
       }, 1000);
-      recommendPlaylist({
-        limit: 10,
-      }).then(data => {
-        this.recommendPlaylist.items = data.result;
+      getRecommendPlayList(10, false).then(items => {
+        this.recommendPlaylist.items = items;
         NProgress.done();
         this.show = true;
       });
@@ -152,7 +150,6 @@ export default {
           this.topList.ids.includes(l.id)
         );
       });
-      countDBSize();
       this.$refs.DailyTracksCard.loadDailyTracks();
     },
   },

@@ -16,7 +16,7 @@
           ><svg-icon icon-class="play" />
         </button>
       </div>
-      <img :src="imageUrl" :style="imageStyles" />
+      <img :src="imageUrl" :style="imageStyles" loading="lazy" />
       <transition v-if="coverHover || alwaysShowShadow" name="fade">
         <div
           v-show="focus || alwaysShowShadow"
@@ -101,6 +101,7 @@ img {
   width: 100%;
   user-select: none;
   aspect-ratio: 1 / 1;
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .cover-hover {

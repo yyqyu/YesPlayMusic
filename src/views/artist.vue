@@ -2,7 +2,7 @@
   <div v-show="show" class="artist-page">
     <div class="artist-info">
       <div class="head">
-        <img :src="artist.img1v1Url | resizeImage(1024)" />
+        <img :src="artist.img1v1Url | resizeImage(1024)" loading="lazy" />
       </div>
       <div>
         <div class="name">{{ artist.name }}</div>
@@ -42,7 +42,7 @@
         </div>
       </div>
     </div>
-    <div class="latest-release">
+    <div v-if="latestRelease !== undefined" class="latest-release">
       <div class="section-title">{{ $t('artist.latestRelease') }}</div>
       <div class="release">
         <div class="container">
@@ -75,7 +75,7 @@
             @mouseleave="mvHover = false"
             @click="goToMv(latestMV.id)"
           >
-            <img :src="latestMV.coverUrl" />
+            <img :src="latestMV.coverUrl" loading="lazy" />
             <transition name="fade">
               <div
                 v-show="mvHover"
@@ -127,7 +127,7 @@
     <div v-if="mvs.length !== 0" id="mvs" class="mvs">
       <div class="section-title"
         >MVs
-        <router-link v-show="hasMoreMV" :to="`/artist/${this.artist.id}/mv`">{{
+        <router-link v-show="hasMoreMV" :to="`/artist/${artist.id}/mv`">{{
           $t('home.seeMore')
         }}</router-link>
       </div>
@@ -168,6 +168,9 @@
     <ContextMenu ref="artistMenu">
       <div class="item" @click="copyUrl(artist.id)">{{
         $t('contextMenu.copyUrl')
+      }}</div>
+      <div class="item" @click="openInBrowser(artist.id)">{{
+        $t('contextMenu.openInBrowser')
       }}</div>
     </ContextMenu>
   </div>
@@ -339,13 +342,17 @@ export default {
     },
     copyUrl(id) {
       let showToast = this.showToast;
-      this.$copyText('https://music.163.com/#/artist?id=' + id)
+      this.$copyText(`https://music.163.com/#/artist?id=${id}`)
         .then(function () {
           showToast(locale.t('toast.copied'));
         })
         .catch(error => {
           showToast(`${locale.t('toast.copyFailed')}${error}`);
         });
+    },
+    openInBrowser(id) {
+      const url = `https://music.163.com/#/artist?id=${id}`;
+      window.open(url);
     },
   },
 };

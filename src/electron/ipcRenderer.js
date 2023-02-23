@@ -36,7 +36,11 @@ export function ipcRenderer(vueInstance) {
   });
 
   ipcRenderer.on('next', () => {
-    player.playNextTrack();
+    if (player.isPersonalFM) {
+      player.playNextFMTrack();
+    } else {
+      player.playNextTrack();
+    }
   });
 
   ipcRenderer.on('previous', () => {
@@ -75,5 +79,16 @@ export function ipcRenderer(vueInstance) {
 
   ipcRenderer.on('nextUp', () => {
     self.$refs.player.goToNextTracksPage();
+  });
+
+  ipcRenderer.on('rememberCloseAppOption', (event, value) => {
+    store.commit('updateSettings', {
+      key: 'closeAppOption',
+      value,
+    });
+  });
+
+  ipcRenderer.on('setPosition', (event, position) => {
+    player._howler.seek(position);
   });
 }

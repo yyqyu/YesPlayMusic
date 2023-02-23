@@ -66,13 +66,9 @@
 <script>
 import { mapState, mapMutations } from 'vuex';
 import NProgress from 'nprogress';
-import {
-  topPlaylist,
-  highQualityPlaylist,
-  recommendPlaylist,
-  toplists,
-} from '@/api/playlist';
+import { topPlaylist, highQualityPlaylist, toplists } from '@/api/playlist';
 import { playlistCategories } from '@/utils/staticData';
+import { getRecommendPlayList } from '@/utils/playList';
 
 import ButtonTwoTone from '@/components/ButtonTwoTone.vue';
 import CoverRow from '@/components/CoverRow.vue';
@@ -132,7 +128,7 @@ export default {
     },
     goToCategory(Category) {
       this.showCatOptions = false;
-      this.$router.push({ path: '/explore?category=' + Category });
+      this.$router.push({ name: 'explore', query: { category: Category } });
     },
     updatePlaylist(playlists) {
       this.playlists.push(...playlists);
@@ -155,9 +151,9 @@ export default {
       return this.getTopPlayList();
     },
     getRecommendPlayList() {
-      recommendPlaylist({ limit: 100 }).then(data => {
+      getRecommendPlayList(100, true).then(list => {
         this.playlists = [];
-        this.updatePlaylist(data.result);
+        this.updatePlaylist(list);
       });
     },
     getHighQualityPlaylist() {
